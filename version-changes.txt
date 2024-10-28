@@ -1,0 +1,7 @@
+Version 0.0.1
+
+- Created a SpotifyDatasetProcessor class which will process the spotify million dataset provided by Spotify
+- Creation of clean_data function within the class to collect all the track data in the dataset and clean any duplicates. 
+
+Errors/Problems
+- Runtime is too long, takes ~ 800 seconds to append all playlists to a list and concatenation does not finish due to memory limitations. 
