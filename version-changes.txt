@@ -1,11 +1,9 @@
-Version 0.0.2
+Version 0.0.3
 
-- Instead of processing all the data in one go, I implemented chunking to eliminate the memory issues.
-- Filtered out unneeded columns within clean_data()
-- Introduced a second function get_all_tracks_info() that takes over retrieving the track data of a single file. This allows the segregation between retrieving and processing data. 
-- Runtime of getting all the data and saving to disk is improved to ~ 320 seconds.
+- Adjusted chunking to be with available memory rather than list size. This allows me to better control the use of computational resources without noticeably impacting the performance of the device. 
 
+- Created a create_empty_csv() function which creates an empty csv with the required columns if the file does not exist. This eliminates the extra row problem from the previous version after setting header=False when writing to the file. The problem was that the header of the dataset was being appended in each chunk, ultimately creating an extra row. 
 
 Errors/Problems
-- The output dataset file is 2262293 x 4 columns, indicating there are 2262293 unique tracks, however the stats from Spotify the dataset should contain 2262292 unique tracks. There is an additional row in my dataset which will need to be fixed. 
+-
 
