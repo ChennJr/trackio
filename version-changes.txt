@@ -1,7 +1,11 @@
-Version 0.0.1
+Version 0.0.2
 
-- Created a SpotifyDatasetProcessor class which will process the spotify million dataset provided by Spotify
-- Creation of clean_data function within the class to collect all the track data in the dataset and clean any duplicates. 
+- Instead of processing all the data in one go, I implemented chunking to eliminate the memory issues.
+- Filtered out unneeded columns within clean_data()
+- Introduced a second function get_all_tracks_info() that takes over retrieving the track data of a single file. This allows the segregation between retrieving and processing data. 
+- Runtime of getting all the data and saving to disk is improved to ~ 320 seconds.
+
 
 Errors/Problems
-- Runtime is too long, takes ~ 800 seconds to append all playlists to a list and concatenation does not finish due to memory limitations. 
+- The output dataset file is 2262293 x 4 columns, indicating there are 2262293 unique tracks, however the stats from Spotify the dataset should contain 2262292 unique tracks. There is an additional row in my dataset which will need to be fixed. 
+
