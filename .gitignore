@@ -1,3 +1,6 @@
 
 spotify_million_playlist_dataset
 dataset.csv
+keys.env
+audio_features.csv
+.cache

@@ -1,9 +1,21 @@
-Version 0.0.3
+Version 0.0.4
 
-- Adjusted chunking to be with available memory rather than list size. This allows me to better control the use of computational resources without noticeably impacting the performance of the device. 
+- Used the spotipy api to get audio features and artist features of each track in the dataset. 
 
-- Created a create_empty_csv() function which creates an empty csv with the required columns if the file does not exist. This eliminates the extra row problem from the previous version after setting header=False when writing to the file. The problem was that the header of the dataset was being appended in each chunk, ultimately creating an extra row. 
+- create_spotify_client() creates a spotify client with my program's Spotify client_id and client_secret which was retrieved from Spotify's developer dashboard. 
+
+- The Spotify client_secret and client_id is stored in an env file such that they are not visible within the code and hidden from the user.
+
+- spotify_call() attempts a specific Spotify API call and returns its results
+
+- process_batch() specifically attempts to get audio features and artist features using api calls through spotify_call() that allows for batching. This speeds up the rate at which i collect all the audio features. 
+
+- get_audio_features() calls process_batch() for each batch of tracks. 
+
+- audio features are joined with their respective unique track_uri
+
+- all audio features collected are stored as audio_features.csv
 
 Errors/Problems
--
+- All the audio features took me over 20 days to collect due to Spotify API limits. I could only attempt around 100,000 API calls each day where there are over 2,000,000 tracks within my dataset. 
 
