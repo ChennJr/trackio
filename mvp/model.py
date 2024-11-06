@@ -2,10 +2,16 @@ import json
 import random
 import glob
 import time
+import os
+import numpy as np
+
 import pandas as pd
 import psutil
-import os
-
+import ast
+from textblob import TextBlob
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
 
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -85,14 +91,15 @@ class SpotifyDatasetProcessor:
             df.drop(columns=["pos", "duration_ms",
                     "album_name", "album_uri"], inplace=True)
             df.drop_duplicates(subset=["track_uri"],
-                            ignore_index=True, inplace=True)
-            
+                               ignore_index=True, inplace=True)
+
             df.to_csv(r"mvp\dataset.csv", mode="a", index=False, header=False)
 
         df = pd.read_csv(r"mvp\dataset.csv")
         df.drop_duplicates(subset=["track_uri"],
                            ignore_index=True, inplace=True)
-        df = df.sort_values(by=['track_name', 'artist_name'], ignore_index=True)
+        df = df.sort_values(
+            by=['track_name', 'artist_name'], ignore_index=True)
         df.to_csv(r"mvp\dataset.csv", mode="w", index=False)
 
         time_taken = time.process_time() - time_start
@@ -105,7 +112,7 @@ class SpotifyDatasetProcessor:
         credentials_manager = SpotifyClientCredentials(
             client_id=self.client_id, client_secret=self.client_secret)
         return spotipy.Spotify(auth_manager=credentials_manager)
-    
+
     def spotify_call(self, func, *args, retries=3):
         """
         Try a Spotify API call a specified number of times.
@@ -124,7 +131,7 @@ class SpotifyDatasetProcessor:
             except spotipy.exceptions.SpotifyException as e:
                 if e.http_status == 401:
                     print(f"401 Unauthorized. Attempt {
-                          attempt + 1}/{retries}. Reinitializing client...") 
+                          attempt + 1}/{retries}. Reinitializing client...")
                     self.sp = self.create_spotify_client()  # Reinitialize the client
                 else:
                     print(f"SpotifyException: {e}")
@@ -248,13 +255,161 @@ class SpotifyDatasetProcessor:
         audio_features = pd.concat(df_list, ignore_index=True)
         audio_features.to_csv(
             output_file, mode="a", index=False, header=False)
-    
+
     def join_uri(self):
-        track_uri = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow")["track_uri"]
-        audio_features = pd.read_csv(r"mvp\audio_features.csv", engine="pyarrow")
+        track_uri = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow")[
+            "track_uri"]
+        audio_features = pd.read_csv(
+            r"mvp\audio_features.csv", engine="pyarrow")
 
         audio_features = pd.concat([track_uri, audio_features], axis=1)
         audio_features.to_csv(r"mvp\audio_features.csv", index=False)
+
+    def join_dataset(self):
+        dataset = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow")
+        audio_features = pd.read_csv(
+            r"mvp\audio_features.csv", engine="pyarrow")
+        full_dataset = pd.concat([dataset, audio_features], axis=1)
+        full_dataset.to_csv(r"mvp\full_dataset.csv", index=False)
+
+
+class ContentBasedFilter:
+    def __init__(self):
+        self.full_dataset = pd.read_csv(
+            r"mvp\full_dataset.csv", engine="pyarrow")
+
+    def get_subjectivity(self, text):
+        """
+        Get the subjectivity of a text
+        """
+        return TextBlob(text).sentiment.subjectivity
+
+    def get_polarity(self, text):
+        """
+        Get the polarity of a text
+        """
+        return TextBlob(text).sentiment.polarity
+
+    def get_analysis(self, score, task="polarity"):
+        """
+        Get the analysis of a text based on its score
+        """
+        if task == "subjectivity":
+            if score < 1/3:
+                return "low"
+            elif score > 1/3:
+                return "high"
+            else:
+                return "medium"
+        else:
+            if score < 0:
+                return 'Negative'
+            elif score == 0:
+                return 'Neutral'
+            else:
+                return 'Positive'
+
+    def sentiment_analysis(self, df, text_col):
+        """
+        Perform sentiment analysis on a text column in a dataframe
+        """
+
+        # Apply functions and store results in new columns using .loc
+        df.loc[:, 'subjectivity'] = df[text_col].apply(
+            self.get_subjectivity).apply(lambda x: self.get_analysis(x, "subjectivity"))
+        df.loc[:, 'polarity'] = df[text_col].apply(
+            self.get_polarity).apply(self.get_analysis)
+
+        return df
+
+    def ohe_prep(self, df, column, new_name):
+        """
+        One-hot encode a column in a dataframe
+        """
+
+        tf_df = pd.get_dummies(df[column], dtype="uint8")
+        feature_names = tf_df.columns
+        tf_df.columns = [new_name + "|" + str(i) for i in feature_names]
+        tf_df.reset_index(drop=True, inplace=True)
+        return tf_df
+
+    def convert_to_list(self, genre_str):
+        '''
+        Convert a string of genres to a list and replace spaces in genre name with underscores
+        '''
+
+        try:
+            return [genre.replace(" ", "_") for genre in ast.literal_eval(genre_str)]
+        except (ValueError, SyntaxError):
+            return []
+
+    def process_data(self):
+        '''
+        Process the full dataset to create a final set of features that is machine readable that will be used to generate recommendations
+        '''
+
+        full_dataset = self.full_dataset.convert_dtypes(
+            "str").drop(columns=["artist_name", "artist_uri"])
+        full_dataset["track_name"] = full_dataset["track_name"].fillna("")
+        float_cols = full_dataset.dtypes[full_dataset.dtypes ==
+                                         'Float64'].index.values
+
+        # Tfidf genre lists
+        tfidf = TfidfVectorizer()
+        tfidf_matrix = tfidf.fit_transform(full_dataset['genres'].apply(
+            self.convert_to_list).str.join(" "))
+        print("Tfidf matrix created")
+        svd = TruncatedSVD(n_components=200)
+        tfidf_matrix = svd.fit_transform(tfidf_matrix)
+        print("SVD matrix created")
+        genre_df = pd.DataFrame(tfidf_matrix).astype(np.float64)
+        genre_df.columns = [f'{
+            i+1}' for i in range(genre_df.shape[1])]
+        genre_df.reset_index(drop=True, inplace=True)
+
+        # Sentiment analysis
+        df = self.sentiment_analysis(full_dataset, "track_name")
+
+        # One-hot Encoding
+        subject_ohe = (self.ohe_prep(df, 'subjectivity',
+                       'subject') * 0.3)
+        polar_ohe = (self.ohe_prep(df, 'polarity', 'polar')
+                     * 0.5)
+        key_ohe = (self.ohe_prep(df, 'key', 'key') * 0.5)
+        mode_ohe = (self.ohe_prep(df, 'mode', 'mode') * 0.5)
+
+        # Scale popularity columns
+        pop = full_dataset[["artist_pop", "track_pop"]].reset_index(drop=True)
+        scaler = MinMaxScaler()
+        pop_scaled = (pd.DataFrame(scaler.fit_transform(pop),
+                      columns=pop.columns) * 0.2)
+
+        # Scale audio columns
+        floats = full_dataset[float_cols].reset_index(drop=True)
+        scaler = MinMaxScaler()
+        floats_scaled = (pd.DataFrame(scaler.fit_transform(
+            floats), columns=floats.columns) * 0.2)
+
+        feature_vectors = np.hstack([floats_scaled.values, genre_df.values, pop_scaled.values,
+                                    subject_ohe.values, polar_ohe.values, key_ohe.values, mode_ohe.values], dtype=np.float32)
+        n_features = feature_vectors.shape[1]
+
+        feature_column_names = [f'feature_{i+1}' for i in range(n_features)]
+
+        # Convert the feature_vectors array to a DataFrame
+        feature_df = pd.DataFrame(
+            feature_vectors, columns=feature_column_names).astype(np.float32)
+
+        print("Complete feature df created")
+        print(feature_df)
+
+        feature_df.fillna(0, inplace=True)
+
+        if os.path.exists(r"mvp\complete_feature_df.h5"):
+            os.remove(r"mvp\complete_feature_df.h5")
+
+        feature_df.to_hdf(r"mvp\complete_feature_df.h5", key="df", mode="w")
+        print("Complete feature df saved to disk")
 
 
 load_dotenv(r"mvp\keys.env")
@@ -265,11 +420,12 @@ SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 processor = SpotifyDatasetProcessor(client_id=SPOTIFY_CLIENT_ID, client_secret=SPOTIFY_CLIENT_SECRET,
                                     directory=r"mvp\spotify_million_playlist_dataset\data")
 
-#processor.clean_data()
-#processor.get_audio_features(r"mvp\audio_features.csv")
-#processor.join_uri() 
+cbf = ContentBasedFilter()
 
-df = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow")
-audio_features = pd.read_csv(r"mvp\audio_features.csv", engine="pyarrow")
-print(df)
-print(audio_features)
+# processor.clean_data()
+# processor.get_audio_features(r"mvp\audio_features.csv")
+# processor.join_uri()
+
+# dataset = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow")
+# audio_features = pd.read_csv(r"mvp\audio_features.csv", engine="pyarrow")
+cbf.process_data()

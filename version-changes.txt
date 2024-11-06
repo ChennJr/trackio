@@ -1,21 +1,18 @@
-Version 0.0.4
+Version 0.0.5
 
-- Used the spotipy api to get audio features and artist features of each track in the dataset. 
+- Created functions to prepare for content based filtering. 
 
-- create_spotify_client() creates a spotify client with my program's Spotify client_id and client_secret which was retrieved from Spotify's developer dashboard. 
+- getSubjectivity() and getPolarity() are necessary to perform sentiment analysis, which is a data analysis technique that determines the sentiment behind a piece of text. In my case I will be applying it on the track name. 
+- Subjectivity is the amount of personal opinion and factual information contained in the text.
+- Polarity is the degree of strong or clearly defined sentiment accounting for negation.
 
-- The Spotify client_secret and client_id is stored in an env file such that they are not visible within the code and hidden from the user.
+- ohe_prep() applies one-hot encoding (ohe). This is a technique that transforms categorised data into machine-readable features. Each category can be represented as True or False. This will be applied to the genre data of my tracks, such that if a genre is present in the track, it is True, otherwise it is False. However, I will need to weigh the importance of each genre as some are more prevalent whilst others are more obscure. 
 
-- spotify_call() attempts a specific Spotify API call and returns its results
+- TF-IDF is applied through TFidfVectoriser. These are measures that are also applied to genre data, it is used to quantify words in a set of documents and shows its importance within the document itself and across documents. In my case, the documents are individual tracks and the words are genres. 
 
-- process_batch() specifically attempts to get audio features and artist features using api calls through spotify_call() that allows for batching. This speeds up the rate at which i collect all the audio features. 
-
-- get_audio_features() calls process_batch() for each batch of tracks. 
-
-- audio features are joined with their respective unique track_uri
-
-- all audio features collected are stored as audio_features.csv
+- MinMaxScaler() is applied to my audio features to normalise their values based on the maximum and minimum values of each variable. 
 
 Errors/Problems
-- All the audio features took me over 20 days to collect due to Spotify API limits. I could only attempt around 100,000 API calls each day where there are over 2,000,000 tracks within my dataset. 
+- Sentiment analysis cannot be performed on None type values within the track_name column of the dataframe. To fix this, I ensured to fill NA values with a empty string instead. After creating the final feature df, I filled NA values with 0. 
 
+- The number of different genres creates a dimension of over 1000 columns. This massively increases memory usage. To fix this, I truncated the dimensions using svd to reduce the number of genre columns to 200. This attempts to keep the necessary information about genres but reduce the number of dimensions. 
