@@ -1,18 +1,17 @@
-Version 0.0.5
+Version 0.0.6
 
-- Created functions to prepare for content based filtering. 
+- Collected all the data analysis techniques within one function in ContentBasedFilter: process_data().
+ 
+- Using TruncatedSVD, I minimised my genre dimensions down to n_components = 100. As my data is sparse with lots of 0s within the TF-IDF matrix, I can perform dimensionality reduction on the matrix with SVD as it allows me to retain most of the data relevance and variance whilst reducing the amount of memory needed to convert the matrix to a dataframe. 
 
-- getSubjectivity() and getPolarity() are necessary to perform sentiment analysis, which is a data analysis technique that determines the sentiment behind a piece of text. In my case I will be applying it on the track name. 
-- Subjectivity is the amount of personal opinion and factual information contained in the text.
-- Polarity is the degree of strong or clearly defined sentiment accounting for negation.
+- To find the most optimal n_components for SVD, I collected a subset size of 1000 of my TF-IDF matrix, performed dimensionality reduction to obtain a reduced matrix. I reconstructed the subset from my reduced matrix whilst calculating the reconstruction error. I plotted the reconstruction error against the value used for n_components. Visually, I can see n_components = 100 is the first value to give me 0 reconstruction error, whereas as n_components = 5, 10, 50 and 75 each give me reconstruction error. However, this is only applied to a small subset of my matrix. This means that it may not be true for a larger matrix. This can be considered a limitation of the system, which can affect the accuracy of my recommendations. 
 
-- ohe_prep() applies one-hot encoding (ohe). This is a technique that transforms categorised data into machine-readable features. Each category can be represented as True or False. This will be applied to the genre data of my tracks, such that if a genre is present in the track, it is True, otherwise it is False. However, I will need to weigh the importance of each genre as some are more prevalent whilst others are more obscure. 
+- After processing all the data into a dataframe, I saved it to disk. 
 
-- TF-IDF is applied through TFidfVectoriser. These are measures that are also applied to genre data, it is used to quantify words in a set of documents and shows its importance within the document itself and across documents. In my case, the documents are individual tracks and the words are genres. 
+- Created a function to convert the feature dataframe to a matrix, as per FAISS requirements. Normalised the matrix so that values are comparable to one another. 
 
-- MinMaxScaler() is applied to my audio features to normalise their values based on the maximum and minimum values of each variable. 
+- The track to get reccomendations about is indexed and also normalised from the feature matrix. 
 
-Errors/Problems
-- Sentiment analysis cannot be performed on None type values within the track_name column of the dataframe. To fix this, I ensured to fill NA values with a empty string instead. After creating the final feature df, I filled NA values with 0. 
+- A FAISS index is created based on the normalised feature matrix. 
 
-- The number of different genres creates a dimension of over 1000 columns. This massively increases memory usage. To fix this, I truncated the dimensions using svd to reduce the number of genre columns to 200. This attempts to keep the necessary information about genres but reduce the number of dimensions. 
+- Track recommendations are retrieved by performing a similarity search on the FAISS index based off the normalised track vector. 

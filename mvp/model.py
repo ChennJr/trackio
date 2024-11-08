@@ -12,6 +12,8 @@ from textblob import TextBlob
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
+import faiss
+
 
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -359,7 +361,7 @@ class ContentBasedFilter:
         tfidf_matrix = tfidf.fit_transform(full_dataset['genres'].apply(
             self.convert_to_list).str.join(" "))
         print("Tfidf matrix created")
-        svd = TruncatedSVD(n_components=200)
+        svd = TruncatedSVD(n_components=100)
         tfidf_matrix = svd.fit_transform(tfidf_matrix)
         print("SVD matrix created")
         genre_df = pd.DataFrame(tfidf_matrix).astype(np.float64)
@@ -411,6 +413,145 @@ class ContentBasedFilter:
         feature_df.to_hdf(r"mvp\complete_feature_df.h5", key="df", mode="w")
         print("Complete feature df saved to disk")
 
+    def create_feature_matrix(self):
+        """
+        Load the feature df from disk and convert to feature matrix
+
+        Returns:
+            feature_matrix (numpy array): Feature matrix
+        """
+
+        try:
+            feature_df = pd.read_hdf(r"mvp\complete_feature_df.h5", key="df")
+            print("Feature df loaded")
+
+            feature_matrix = feature_df.values
+            feature_matrix = feature_matrix.astype(np.float32)
+            feature_matrix = np.ascontiguousarray(feature_matrix)
+            print("Converted to feature matrix")
+
+            return feature_matrix
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
+
+    def normalise_feature_matrix(self):
+        """
+        Normalise the feature matrix for L2 distance and save the normalised feature matrix to disk
+
+        """
+
+        feature_matrix = self.create_feature_matrix()
+        # Normalize feature matrix for L2 distance
+        faiss.normalize_L2(feature_matrix)  # Avoid division by zero
+        print("Feature matrix normalized shape:", feature_matrix.shape)
+
+        if os.path.exists(r"mvp\feature_matrix_normalised.npy"):
+            os.remove(r"mvp\feature_matrix_normalised.npy")
+
+        np.save(r"mvp\feature_matrix_normalised.npy", feature_matrix)
+        print("Feature matrix saved to disk")
+
+    def normalise_track_vector(self, feature_matrix, track_uri):
+        """
+        Normalise the track vector for L2 distance and save it to disk
+
+        Args:
+            full_df (pandas dataframe): Dataframe with track information
+            feature_matrix (numpy array): Feature matrix
+            track_uri (str): Track URI
+
+        Returns:
+            None
+        """
+        print(track_uri)
+        full_dataset = pd.read_csv(r"mvp\full_dataset.csv", engine="pyarrow")
+
+        track_index = full_dataset.index[full_dataset["track_uri"] == track_uri].tolist(
+        )
+
+        if not track_index:
+            raise ValueError("Track URI not found in the DataFrame")
+
+        track_index = track_index[0]
+
+        # Get the first matching index
+        print(f"Track index for URI {track_uri}: {track_index}")
+
+        track_vector = feature_matrix[track_index].reshape(1, -1)
+
+        track_vector = np.ascontiguousarray(track_vector)
+        faiss.normalize_L2(track_vector)
+
+        return track_vector
+
+    def create_index(self):
+        """
+        Get the similarities between the track vector and the feature matrix using FAISS
+
+        Returns:
+            indices (numpy array): Indices of the most similar tracks
+            distances (numpy array): Distances of the most similar tracks
+        """
+
+        try:
+            # Create a new index
+            if os.path.exists(r"mvp\feature_matrix_normalised.npy"):
+                pass
+
+            else:
+                self.normalise_feature_matrix()
+            feature_matrix = np.load(r"mvp\feature_matrix_normalised.npy")
+            index = faiss.IndexFlatIP(feature_matrix.shape[1])
+            print("FAISS index created")
+
+            index.add(feature_matrix)
+
+            if os.path.exists(r"mvp\index_file.index"):
+                os.remove(r"mvp\index_file.index")
+
+            faiss.write_index(index, r"mvp\index_file.index")
+            print("FAISS index saved to disk")
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
+
+    def get_similarities(self, track_uri):
+        """
+        Get the similarities between the track vector and the feature matrix using FAISS
+
+        Args:
+            track_uri
+
+        Returns:
+            indices (numpy array): Indices of the most similar tracks
+            distances (numpy array): Distances of the most similar tracks
+        """
+
+        try:
+            start = time.time()
+            feature_matrix = np.load(r"mvp\feature_matrix_normalised.npy")
+            track_vector = self.normalise_track_vector(
+                feature_matrix, track_uri)
+            print(track_vector)
+            # Load the index
+            index = faiss.read_index(r"mvp\index_file.index")
+            print("FAISS index loaded")
+
+            distances, indices = index.search(track_vector, 10)
+            print("Distances:", distances)
+            print("Indices:", indices)
+
+            print(f"Time taken to search: {time.time() - start:.2f} seconds")
+
+            return indices[0], distances[0]
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
+
 
 load_dotenv(r"mvp\keys.env")
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
@@ -428,4 +569,13 @@ cbf = ContentBasedFilter()
 
 # dataset = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow")
 # audio_features = pd.read_csv(r"mvp\audio_features.csv", engine="pyarrow")
+full_dataset = pd.read_csv(r"mvp\full_dataset.csv", engine="pyarrow")
+
 cbf.process_data()
+cbf.create_index()
+indices, distances = cbf.get_similarities(
+    track_uri="spotify:track:2MYl0er3UZ1RlKwRb5LODh")
+similar_tracks = full_dataset.iloc[indices]
+similar_tracks = similar_tracks[['track_name', 'artist_name', 'track_uri', 'genres', 'acousticness',
+                                 'danceability', 'energy', 'instrumentalness', 'liveness', 'loudness', 'speechiness', 'valence', 'tempo']]
+print(similar_tracks)

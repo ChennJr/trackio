@@ -6,3 +6,5 @@ audio_features.csv
 .cache
 complete_feature_df.h5
 full_dataset.csv
+index_file.index
+feature_matrix_normalised.npy
