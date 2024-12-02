@@ -1,5 +1,5 @@
 
-spotify_million_playlist_dataset
+spotify_million_playlist_dataset.rar
 dataset.csv
 keys.env
 audio_features.csv
@@ -8,3 +8,7 @@ complete_feature_df.h5
 full_dataset.csv
 index_file.index
 feature_matrix_normalised.npy
+assets
+ui
+/QtCreator
+mvp/__pycache__/presenter.cpython-312.pyc

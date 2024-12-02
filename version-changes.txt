@@ -1,17 +1,8 @@
-Version 0.0.6
+Version 0.0.7
 
-- Collected all the data analysis techniques within one function in ContentBasedFilter: process_data().
- 
-- Using TruncatedSVD, I minimised my genre dimensions down to n_components = 100. As my data is sparse with lots of 0s within the TF-IDF matrix, I can perform dimensionality reduction on the matrix with SVD as it allows me to retain most of the data relevance and variance whilst reducing the amount of memory needed to convert the matrix to a dataframe. 
-
-- To find the most optimal n_components for SVD, I collected a subset size of 1000 of my TF-IDF matrix, performed dimensionality reduction to obtain a reduced matrix. I reconstructed the subset from my reduced matrix whilst calculating the reconstruction error. I plotted the reconstruction error against the value used for n_components. Visually, I can see n_components = 100 is the first value to give me 0 reconstruction error, whereas as n_components = 5, 10, 50 and 75 each give me reconstruction error. However, this is only applied to a small subset of my matrix. This means that it may not be true for a larger matrix. This can be considered a limitation of the system, which can affect the accuracy of my recommendations. 
-
-- After processing all the data into a dataframe, I saved it to disk. 
-
-- Created a function to convert the feature dataframe to a matrix, as per FAISS requirements. Normalised the matrix so that values are comparable to one another. 
-
-- The track to get reccomendations about is indexed and also normalised from the feature matrix. 
-
-- A FAISS index is created based on the normalised feature matrix. 
-
-- Track recommendations are retrieved by performing a similarity search on the FAISS index based off the normalised track vector. 
+- Used QT Design Studio to create a mockup of a GUI design. 
+- Transferred the design to QT Creator. Used a stack view with two components, that switch based off a button signal. 
+- Created the UI design for the login page and the recommendation page. 
+- Created a slot in view.py to connect the python backend to the qml file. 
+- Created a function to retrieve the user input from the qml file. 
+- QML file is loaded within view.py while presenter.py connects both the model and view. 
