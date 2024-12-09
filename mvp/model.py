@@ -13,7 +13,9 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 import faiss
-
+import sqlite3
+from sqlite3 import Error
+import bcrypt
 
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -28,7 +30,7 @@ class SpotifyDatasetProcessor:
         :param directory: Directory containing the spotify dataset json files
         """
         self.directory = sorted(glob.glob(directory + r"\*json"), key=len)
-        self.csv_file = r"mvp\dataset.csv"
+        self.csv_file = r"dataset.csv"
         self.client_id = client_id
         self.client_secret = client_secret
         self.sp = self.create_spotify_client()
@@ -79,7 +81,7 @@ class SpotifyDatasetProcessor:
                         "album_name", "album_uri"], inplace=True)
                 df.drop_duplicates(
                     subset=["track_uri"], ignore_index=True, inplace=True)
-                df.to_csv(r"mvp\dataset.csv", mode="a",
+                df.to_csv(r"dataset.csv", mode="a",
                           index=False, header=False)
                 tracks_list.clear()
 
@@ -95,14 +97,14 @@ class SpotifyDatasetProcessor:
             df.drop_duplicates(subset=["track_uri"],
                                ignore_index=True, inplace=True)
 
-            df.to_csv(r"mvp\dataset.csv", mode="a", index=False, header=False)
+            df.to_csv(r"dataset.csv", mode="a", index=False, header=False)
 
-        df = pd.read_csv(r"mvp\dataset.csv")
+        df = pd.read_csv(r"dataset.csv")
         df.drop_duplicates(subset=["track_uri"],
                            ignore_index=True, inplace=True)
         df = df.sort_values(
             by=['track_name', 'artist_name'], ignore_index=True)
-        df.to_csv(r"mvp\dataset.csv", mode="w", index=False)
+        df.to_csv(r"dataset.csv", mode="w", index=False)
 
         time_taken = time.process_time() - time_start
         print(f"Time taken: {time_taken} seconds")
@@ -229,7 +231,7 @@ class SpotifyDatasetProcessor:
             None
         """
         # Load data
-        uri_df = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow").drop(
+        uri_df = pd.read_csv(r"dataset.csv", engine="pyarrow").drop(
             columns=["track_name", "artist_name"])
 
         # Prepare dataframe for results
@@ -248,7 +250,7 @@ class SpotifyDatasetProcessor:
             columns = ["artist_pop", "genres", "danceability", "energy", "key", "loudness", "mode",
                        "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo", "track_pop"]
             df = pd.DataFrame(columns=columns)
-            df.to_csv(r"mvp\audio_features.csv", index=False)
+            df.to_csv(r"audio_features.csv", index=False)
             print(f"{"audio_features.csv"} created with columns: {
                   ', '.join(columns)}")
         else:
@@ -259,26 +261,26 @@ class SpotifyDatasetProcessor:
             output_file, mode="a", index=False, header=False)
 
     def join_uri(self):
-        track_uri = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow")[
+        track_uri = pd.read_csv(r"dataset.csv", engine="pyarrow")[
             "track_uri"]
         audio_features = pd.read_csv(
-            r"mvp\audio_features.csv", engine="pyarrow")
+            r"audio_features.csv", engine="pyarrow")
 
         audio_features = pd.concat([track_uri, audio_features], axis=1)
-        audio_features.to_csv(r"mvp\audio_features.csv", index=False)
+        audio_features.to_csv(r"audio_features.csv", index=False)
 
     def join_dataset(self):
-        dataset = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow")
+        dataset = pd.read_csv(r"dataset.csv", engine="pyarrow")
         audio_features = pd.read_csv(
-            r"mvp\audio_features.csv", engine="pyarrow")
+            r"audio_features.csv", engine="pyarrow")
         full_dataset = pd.concat([dataset, audio_features], axis=1)
-        full_dataset.to_csv(r"mvp\full_dataset.csv", index=False)
+        full_dataset.to_csv(r"full_dataset.csv", index=False)
 
 
 class ContentBasedFilter:
     def __init__(self):
         self.full_dataset = pd.read_csv(
-            r"mvp\full_dataset.csv", engine="pyarrow")
+            r"full_dataset.csv", engine="pyarrow")
 
     def get_subjectivity(self, text):
         """
@@ -407,10 +409,10 @@ class ContentBasedFilter:
 
         feature_df.fillna(0, inplace=True)
 
-        if os.path.exists(r"mvp\complete_feature_df.h5"):
-            os.remove(r"mvp\complete_feature_df.h5")
+        if os.path.exists(r"complete_feature_df.h5"):
+            os.remove(r"complete_feature_df.h5")
 
-        feature_df.to_hdf(r"mvp\complete_feature_df.h5", key="df", mode="w")
+        feature_df.to_hdf(r"complete_feature_df.h5", key="df", mode="w")
         print("Complete feature df saved to disk")
 
     def create_feature_matrix(self):
@@ -422,7 +424,7 @@ class ContentBasedFilter:
         """
 
         try:
-            feature_df = pd.read_hdf(r"mvp\complete_feature_df.h5", key="df")
+            feature_df = pd.read_hdf(r"complete_feature_df.h5", key="df")
             print("Feature df loaded")
 
             feature_matrix = feature_df.values
@@ -447,10 +449,10 @@ class ContentBasedFilter:
         faiss.normalize_L2(feature_matrix)  # Avoid division by zero
         print("Feature matrix normalized shape:", feature_matrix.shape)
 
-        if os.path.exists(r"mvp\feature_matrix_normalised.npy"):
-            os.remove(r"mvp\feature_matrix_normalised.npy")
+        if os.path.exists(r"feature_matrix_normalised.npy"):
+            os.remove(r"feature_matrix_normalised.npy")
 
-        np.save(r"mvp\feature_matrix_normalised.npy", feature_matrix)
+        np.save(r"feature_matrix_normalised.npy", feature_matrix)
         print("Feature matrix saved to disk")
 
     def normalise_track_vector(self, feature_matrix, track_uri):
@@ -466,7 +468,7 @@ class ContentBasedFilter:
             None
         """
         print(track_uri)
-        full_dataset = pd.read_csv(r"mvp\full_dataset.csv", engine="pyarrow")
+        full_dataset = pd.read_csv(r"full_dataset.csv", engine="pyarrow")
 
         track_index = full_dataset.index[full_dataset["track_uri"] == track_uri].tolist(
         )
@@ -497,21 +499,21 @@ class ContentBasedFilter:
 
         try:
             # Create a new index
-            if os.path.exists(r"mvp\feature_matrix_normalised.npy"):
+            if os.path.exists(r"feature_matrix_normalised.npy"):
                 pass
 
             else:
                 self.normalise_feature_matrix()
-            feature_matrix = np.load(r"mvp\feature_matrix_normalised.npy")
+            feature_matrix = np.load(r"feature_matrix_normalised.npy")
             index = faiss.IndexFlatIP(feature_matrix.shape[1])
             print("FAISS index created")
 
             index.add(feature_matrix)
 
-            if os.path.exists(r"mvp\index_file.index"):
-                os.remove(r"mvp\index_file.index")
+            if os.path.exists(r"index_file.index"):
+                os.remove(r"index_file.index")
 
-            faiss.write_index(index, r"mvp\index_file.index")
+            faiss.write_index(index, r"index_file.index")
             print("FAISS index saved to disk")
 
         except Exception as e:
@@ -532,12 +534,12 @@ class ContentBasedFilter:
 
         try:
             start = time.time()
-            feature_matrix = np.load(r"mvp\feature_matrix_normalised.npy")
+            feature_matrix = np.load(r"feature_matrix_normalised.npy")
             track_vector = self.normalise_track_vector(
                 feature_matrix, track_uri)
             print(track_vector)
             # Load the index
-            index = faiss.read_index(r"mvp\index_file.index")
+            index = faiss.read_index(r"index_file.index")
             print("FAISS index loaded")
 
             distances, indices = index.search(track_vector, 10)
@@ -553,13 +555,113 @@ class ContentBasedFilter:
             raise
 
 
-load_dotenv(r"mvp\keys.env")
+class Database:
+    DATABASE_FILE = "users.db"
+
+    def __init__(self):
+        self.create_table()
+
+    def create_connection(self):
+
+        connection = None
+        try:
+            connection = sqlite3.connect(self.DATABASE_FILE)
+            return connection
+        
+        except Error as e:
+            print(e)
+        
+        return connection
+
+    def create_table(self):
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                cursor = connection.cursor()
+
+                cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    email TEXT NOT NULL UNIQUE,
+                                    first_name TEXT NOT NULL,
+                                    last_name TEXT NOT NULL,
+                                    password TEXT NOT NULL
+                                );''')
+                connection.commit()
+            except Error as e:
+                print(e)
+            
+            finally:
+                connection.close()
+
+    def insert_user(self, email, first_name, last_name, password):
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                cursor = connection.cursor()
+                hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+                cursor.execute('''INSERT INTO users (email, first_name, last_name, password) VALUES (?, ?, ?, ?);''', (email, first_name, last_name, hashed_password))
+                connection.commit()
+            
+            except Error as e:
+                print(e)
+            
+            finally:
+                connection.close()
+    
+    def verify_user(self, email, password):
+        """ verify the user's credentials """
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                c = connection.cursor()
+                c.execute("SELECT password FROM users WHERE email = ?", (email,))
+                result = c.fetchone()
+                if result and bcrypt.checkpw(password.encode('utf-8'), result[0]):
+                    return True
+                else:
+                    return False
+            except Error as e:
+                print(e)
+                return False
+            finally:
+                connection.close()
+    
+    def email_exists(self, email):
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                c = connection.cursor()
+                c.execute("SELECT 1 FROM users WHERE email = ?", (email,))
+                result = c.fetchone()
+                print(result)
+                return result is not None
+            except Error as e:
+                print(e)
+                return False
+            finally:
+                connection.close()
+    
+def query_users():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users")
+    users = cursor.fetchall()
+    print("\nData in 'users' table:")
+    for user in users:
+        print(user)
+    conn.close()
+
+user_db = Database()
+
+
+
+load_dotenv(r"keys.env")
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 
 
 processor = SpotifyDatasetProcessor(client_id=SPOTIFY_CLIENT_ID, client_secret=SPOTIFY_CLIENT_SECRET,
-                                    directory=r"mvp\spotify_million_playlist_dataset\data")
+                                    directory=r"spotify_million_playlist_dataset\data")
 
 cbf = ContentBasedFilter()
 
@@ -569,13 +671,13 @@ cbf = ContentBasedFilter()
 
 # dataset = pd.read_csv(r"mvp\dataset.csv", engine="pyarrow")
 # audio_features = pd.read_csv(r"mvp\audio_features.csv", engine="pyarrow")
-full_dataset = pd.read_csv(r"mvp\full_dataset.csv", engine="pyarrow")
+#full_dataset = pd.read_csv(r"full_dataset.csv", engine="pyarrow")
 
-cbf.process_data()
-cbf.create_index()
-indices, distances = cbf.get_similarities(
-    track_uri="spotify:track:2MYl0er3UZ1RlKwRb5LODh")
-similar_tracks = full_dataset.iloc[indices]
-similar_tracks = similar_tracks[['track_name', 'artist_name', 'track_uri', 'genres', 'acousticness',
-                                 'danceability', 'energy', 'instrumentalness', 'liveness', 'loudness', 'speechiness', 'valence', 'tempo']]
-print(similar_tracks)
+#cbf.process_data()
+#cbf.create_index()
+#indices, distances = cbf.get_similarities(
+#    track_uri="spotify:track:2MYl0er3UZ1RlKwRb5LODh")
+#similar_tracks = full_dataset.iloc[indices]
+#similar_tracks = similar_tracks[['track_name', 'artist_name', 'track_uri', 'genres', 'acousticness',
+#                                 'danceability', 'energy', 'instrumentalness', 'liveness', 'loudness', 'speechiness', 'valence', 'tempo']]
+#print(similar_tracks)

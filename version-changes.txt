@@ -1,8 +1,26 @@
-Version 0.0.7
+Version 0.0.8
 
-- Used QT Design Studio to create a mockup of a GUI design. 
-- Transferred the design to QT Creator. Used a stack view with two components, that switch based off a button signal. 
-- Created the UI design for the login page and the recommendation page. 
-- Created a slot in view.py to connect the python backend to the qml file. 
-- Created a function to retrieve the user input from the qml file. 
-- QML file is loaded within view.py while presenter.py connects both the model and view. 
+- Created another component page that is pushed when register button is clicked. User is then prompted to enter their first name and last name. 
+
+- email, password, first name and last name is collected through the register function and passed through to the backend function on_register_submit()
+
+
+- Created a database class in model.py to handle database processes.
+
+- imported database in presenter.py to allow it to access the methods of the database class
+
+- Created functions for the database class to 
+	- create a connection to the database file, 
+	- create a users table within the database that stores email, first name, last name and the 	hashed password, 
+	- insert a new user to the table given inputs from the GUI and hash the password input,
+	- verify the user to check if login credentials match for when the user attempts a login rather 	than registration.
+
+- Created functions to ensure email and password input match requirements on registration attempt. 
+
+- Created a function to check if an account already exists with the user email on registration attempt. This ensures that duplicate accounts don't exist. 
+
+- Created dialogue box to tell user error prompts. 
+
+- If the login credentials match, let the user through to the main program.
+
+- Dialogue box created for errors.

@@ -22,6 +22,49 @@ ApplicationWindow {
         initialItem: loginPage
     }
 
+    Dialog {
+    id: messageDialog
+    title: "Error"
+    width: 300
+    height: 100
+    anchors.centerIn: parent
+
+    contentItem: Column {
+        spacing: 10
+        anchors.centerIn: parent
+
+        Text {
+            id: dialogMessage
+            text: "This is a centered message"
+            wrapMode: Text.WordWrap
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: 10
+        }
+
+        Button {
+            text: "Close"
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 5
+            anchors.horizontalCenter: parent.horizontalCenter
+            onClicked: messageDialog.close()
+        }
+    }
+}
+
+    Connections {
+        target: backend
+        
+        onShowMessage: {
+            console.log("Connection accepted");
+            
+            dialogMessage.text = backend.update_status();
+            messageDialog.open();
+        }
+
+    }
+
+
     Component {
         id: loginPage
 
@@ -131,7 +174,7 @@ ApplicationWindow {
                         }
 
                         Rectangle {
-                            id: usernameBox
+                            id: emailBox
                             color: "#ffffff"
                             radius: 10
                             width: parent.width * 0.83
@@ -147,9 +190,9 @@ ApplicationWindow {
                             anchors.topMargin: parent.height * 0.2
 
                             Rectangle {
-                                id: usernameRectangle
+                                id: emailRectangle
                                 color: "transparent"
-                                width: usernameText.width
+                                width: emailText.width
                                 height: parent.height
                                 anchors.bottom: parent.bottom
                                 anchors.bottomMargin: 0
@@ -163,9 +206,9 @@ ApplicationWindow {
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 Text {
-                                    id: usernameText
+                                    id: emailText
                                     color: "#000000"
-                                    text: "Username:"
+                                    text: "Email:"
                                     font.pointSize: parent.height * 0.3
                                     anchors.centerIn: parent
                                     font.weight: Font.DemiBold
@@ -174,12 +217,12 @@ ApplicationWindow {
                             }
 
                             TextInput {
-                                id: usernameTextInput
-                                width: usernameBox.width - usernameRectangle.width * 1.25
-                                anchors.left: usernameRectangle.right
+                                id: emailTextInput
+                                width: emailBox.width - emailRectangle.width * 1.25
+                                anchors.left: emailRectangle.right
                                 anchors.leftMargin: 5
-                                anchors.verticalCenter: usernameRectangle.verticalCenter
-                                font.pixelSize: usernameText.font.pixelSize
+                                anchors.verticalCenter: emailRectangle.verticalCenter
+                                font.pixelSize: emailText.font.pixelSize
                                 clip: true
                                 font.weight: Font.Medium
                                 font.bold: true
@@ -201,7 +244,7 @@ ApplicationWindow {
                                 anchors.right: parent.right
                                 anchors.rightMargin: 0
 
-                                anchors.top: usernameBox.bottom
+                                anchors.top: emailBox.bottom
                                 anchors.topMargin: parent.height * 0.4
 
                                 Rectangle {
@@ -293,8 +336,10 @@ ApplicationWindow {
                                         font.bold: true
                                     }
                                     onClicked: {
-                                        backend.on_login_clicked(usernameTextInput.text, passwordTextInput.text)
-                                        stackView.push(reccomendationsPage, StackView.Immediate)
+                                        if (backend.on_login_clicked(emailTextInput.text, passwordTextInput.text)) {
+                                            stackView.push(reccomendationsPage, StackView.Immediate)
+                                        }
+                                        
                                     }
                                 }
                             }
@@ -334,8 +379,9 @@ ApplicationWindow {
                                     }
 
                                     onClicked: {
-                                        backend.on_register_clicked(usernameTextInput.text, passwordTextInput.text)
-                                        stackView.push(reccomendationsPage, StackView.Immediate)
+                                        if (backend.on_register_clicked(emailTextInput.text, passwordTextInput.text)) {
+                                            stackView.push(registerDetailsPage, StackView.Immediate)
+                                        }
                                     }
                                 }
                             }
@@ -345,6 +391,7 @@ ApplicationWindow {
         }
     Component {
         id: reccomendationsPage
+
         Item {
             width: parent.width
             height: parent.height
@@ -773,6 +820,286 @@ ApplicationWindow {
             }
         }
     }
+
+    Component {
+        id: registerDetailsPage
+
+        Rectangle {
+            id: backgroundRect
+            width: parent.width
+            height: parent.height
+
+            Rectangle {
+                id: gradientRect
+                color: "#ffffff"
+                anchors.fill: parent
+
+                gradient: Gradient {
+                    GradientStop {
+                        position: 1
+                        color: "#434343"
+                    }
+
+                    GradientStop {
+                        position: 0
+                        color: "#171616"
+                    }
+                    orientation: Gradient.Horizontal
+                }
+
+                Rectangle {
+                    id: header
+                    color: "#00000000"
+                    height: width * 0.12
+                    width: parent.width
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+
+                    Rectangle {
+                        id: logoHeaderRect
+                        width: parent.height * 0.8
+                        height: parent.height * 0.8
+                        color: "transparent"
+
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        anchors.left: parent.left
+                        anchors.leftMargin: parent.height * 0.15
+
+                        anchors.top: parent.top
+                        anchors.topMargin: parent.height * 0.15
+
+                        Image {
+                            id: logo
+                            width: parent.height * 0.8
+                            height: parent.height * 0.8
+                            anchors.fill: parent
+
+                            source: "assets/Logo.png"
+                            fillMode: Image.PreserveAspectFit
+                        }
+                    }
+
+                    Rectangle {
+                        id: logoTextRect
+                        width: height
+                        height: parent.height
+                        color: "transparent"
+
+                        anchors.left: logoHeaderRect.right
+                        anchors.leftMargin: 0
+
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: -5
+
+                        Text {
+                            id: logoText
+                            color: "#ffffff"
+                            anchors.fill: parent
+                            text: ".io"
+                            font.weight: Font.Bold
+                            font.pointSize: parent.width * 0.5
+                        }
+                    }
+
+                }
+
+                    Rectangle {
+                        id: userDetailsTextRect
+                        color: "transparent"
+                        height: header.height * 0.9
+                        width: parent.width
+
+                        anchors.top: header.bottom
+                        anchors.topMargin: height * 2
+
+                        anchors.left: parent.left
+                        anchors.leftMargin: parent.width * 0.08
+
+                        anchors.right: parent.right
+                        anchors.rightMargin: parent.width * 0.08
+
+                        Text {
+                            id: userDetailsText
+                            color: "#ffffff"
+                            text: "User Details"
+                            font.pointSize: parent.width * 0.08
+                            anchors.fill: parent
+                            font.weight: Font.DemiBold
+                            font.bold: true
+                        }
+
+                        Rectangle {
+                            id: firstNameBox
+                            color: "#ffffff"
+                            radius: 10
+                            width: parent.width * 0.83
+                            height: parent.height * 0.85
+                            // Fix anchor conflicts and margins
+                            anchors.left: parent.left
+                            anchors.leftMargin: 0
+
+                            anchors.right: parent.right
+                            anchors.rightMargin: 0
+
+                            anchors.top: parent.bottom
+                            anchors.topMargin: parent.height * 0.2
+
+                            Rectangle {
+                                id: firstNameRectangle
+                                color: "transparent"
+                                width: firstNameText.width
+                                height: parent.height
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 0
+
+                                anchors.top: parent.top
+                                anchors.topMargin: 0
+
+                                anchors.left: parent.left
+                                anchors.leftMargin: 5
+
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                Text {
+                                    id: firstNameText
+                                    color: "#000000"
+                                    text: "First Name:"
+                                    font.pointSize: parent.height * 0.3
+                                    anchors.centerIn: parent
+                                    font.weight: Font.DemiBold
+                                    font.bold: true
+                                }
+                            }
+
+                            TextInput {
+                                id: firstNameTextInput
+                                width: firstNameBox.width - firstNameRectangle.width * 1.25
+                                anchors.left: firstNameRectangle.right
+                                anchors.leftMargin: 5
+                                anchors.verticalCenter: firstNameRectangle.verticalCenter
+                                font.pixelSize: firstNameText.font.pixelSize
+                                clip: true
+                                font.weight: Font.Medium
+                                font.bold: true
+                            }
+
+                        }
+
+                            Rectangle {
+                                id: lastNameBox
+                                color: "#ffffff"
+                                radius: 10
+
+                                width: parent.width
+                                height: parent.height * 0.85
+                                // Fix anchor conflicts and margins
+                                anchors.left: parent.left
+                                anchors.leftMargin: 0
+
+                                anchors.right: parent.right
+                                anchors.rightMargin: 0
+
+                                anchors.top: firstNameBox.bottom
+                                anchors.topMargin: parent.height * 0.4
+
+                                Rectangle {
+                                    id: lastNameRectangle
+                                    color: "transparent"
+                                    width: lastNameText.width
+                                    height: parent.height
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 0
+
+                                    anchors.top: parent.top
+                                    anchors.topMargin: 0
+
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 5
+
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Text {
+                                        id: lastNameText
+                                        color: "#000000"
+                                        text: "Last Name:"
+                                        font.pointSize: parent.height * 0.3
+                                        anchors.centerIn: parent
+                                        font.weight: Font.DemiBold
+                                        font.bold: true
+
+                                    }
+                                }
+
+                                TextInput {
+                                    id: lastNameTextInput
+                                    anchors.left: lastNameRectangle.right
+                                    anchors.leftMargin: 5
+                                    anchors.verticalCenter: lastNameRectangle.verticalCenter
+                                    width: lastNameBox.width - lastNameRectangle.width * 1.25
+                                    font.pixelSize: lastNameText.font.pixelSize
+                                    clip: true
+                                    font.weight: Font.Medium
+                                    font.bold: true
+                                }
+                            }
+
+                            Rectangle {
+                                id: enterBox
+                                color: "#ffffff"
+                                radius: 10
+                                width: parent.width * 0.83
+                                height: parent.height * 0.7
+
+                                anchors.top: lastNameBox.bottom
+                                anchors.topMargin: parent.height * 0.4
+
+                                anchors.right: parent.right
+                                anchors.rightMargin: 0
+
+                                anchors.left: parent.left
+                                anchors.leftMargin: 0
+
+                                gradient: Gradient {
+                                    GradientStop {
+                                        position: 0
+                                        color: "#e0ea75"
+                                    }
+
+                                    GradientStop {
+                                        position: 1
+                                        color: "#e1720b"
+                                    }
+                                    orientation: Gradient.Horizontal
+                                }
+
+
+                                Button {
+                                    visible: true
+                                    text: "Create Account"
+                                    anchors.fill: parent
+                                    display: AbstractButton.TextOnly
+                                    background: null
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: "black"
+                                        font.pixelSize: enterBox.height * 0.5
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.weight: Font.DemiBold
+                                        font.bold: true
+                                    }
+                                    onClicked: {
+                                        backend.on_register_submit(firstNameTextInput.text, lastNameTextInput.text)
+                                        stackView.push(reccomendationsPage, StackView.Immediate)
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+        }
 }
 
 

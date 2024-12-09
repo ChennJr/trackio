@@ -1,5 +1,6 @@
 
 spotify_million_playlist_dataset.rar
+spotify_million_playlist_dataset
 dataset.csv
 keys.env
 audio_features.csv
@@ -12,3 +13,4 @@ assets
 ui
 /QtCreator
 mvp/__pycache__/presenter.cpython-312.pyc
+users.db
