@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls 6.7
+import QtQuick.Controls.Fusion
 import QtQuick.Shapes 1.15
 import QtQuick.Layouts
 import QtMultimedia
@@ -31,37 +31,38 @@ ApplicationWindow {
 
     contentItem: Column {
         spacing: 10
-        anchors.centerIn: parent
+        topPadding: -5
 
         Text {
             id: dialogMessage
             text: "This is a centered message"
+            color: "white"
             wrapMode: Text.WordWrap
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: 10
+            
+
+            
         }
 
         Button {
+            id: closeButton
             text: "Close"
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 5
             anchors.horizontalCenter: parent.horizontalCenter
+            background : Rectangle {
+                color: "light grey"
+            }
             onClicked: messageDialog.close()
+
         }
     }
 }
 
     Connections {
         target: backend
-        
-        onShowMessage: {
-            console.log("Connection accepted");
-            
+        function onShowMessage() {
             dialogMessage.text = backend.update_status();
             messageDialog.open();
         }
-
     }
 
 
@@ -131,10 +132,10 @@ ApplicationWindow {
                         color: "transparent"
 
                         anchors.left: logoHeaderRect.right
-                        anchors.leftMargin: 0
+                        anchors.leftMargin: -5
 
                         anchors.bottom: parent.bottom
-                        anchors.bottomMargin: -5
+                        anchors.bottomMargin: -10
 
                         Text {
                             id: logoText
@@ -142,7 +143,7 @@ ApplicationWindow {
                             anchors.fill: parent
                             text: ".io"
                             font.weight: Font.Bold
-                            font.pointSize: parent.width * 0.5
+                            font.pixelSize: parent.width * 0.55
                         }
                     }
 
@@ -167,7 +168,7 @@ ApplicationWindow {
                             id: loginText
                             color: "#ffffff"
                             text: "Login"
-                            font.pointSize: parent.width * 0.08
+                            font.pixelSize: parent.width * 0.11
                             anchors.fill: parent
                             font.weight: Font.DemiBold
                             font.bold: true
@@ -179,7 +180,7 @@ ApplicationWindow {
                             radius: 10
                             width: parent.width * 0.83
                             height: parent.height * 0.85
-                            // Fix anchor conflicts and margins
+                            
                             anchors.left: parent.left
                             anchors.leftMargin: 0
 
@@ -194,11 +195,6 @@ ApplicationWindow {
                                 color: "transparent"
                                 width: emailText.width
                                 height: parent.height
-                                anchors.bottom: parent.bottom
-                                anchors.bottomMargin: 0
-
-                                anchors.top: parent.top
-                                anchors.topMargin: 0
 
                                 anchors.left: parent.left
                                 anchors.leftMargin: 5
@@ -209,7 +205,7 @@ ApplicationWindow {
                                     id: emailText
                                     color: "#000000"
                                     text: "Email:"
-                                    font.pointSize: parent.height * 0.3
+                                    font.pixelSize: parent.height * 0.4
                                     anchors.centerIn: parent
                                     font.weight: Font.DemiBold
                                     font.bold: true
@@ -218,7 +214,7 @@ ApplicationWindow {
 
                             TextInput {
                                 id: emailTextInput
-                                width: emailBox.width - emailRectangle.width * 1.25
+                                width: emailBox.width - emailRectangle.width * 1.4
                                 anchors.left: emailRectangle.right
                                 anchors.leftMargin: 5
                                 anchors.verticalCenter: emailRectangle.verticalCenter
@@ -252,12 +248,6 @@ ApplicationWindow {
                                     color: "transparent"
                                     width: passwordText.width
                                     height: parent.height
-                                    anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: 0
-
-                                    anchors.top: parent.top
-                                    anchors.topMargin: 0
-
                                     anchors.left: parent.left
                                     anchors.leftMargin: 5
 
@@ -267,7 +257,7 @@ ApplicationWindow {
                                         id: passwordText
                                         color: "#000000"
                                         text: "Password:"
-                                        font.pointSize: parent.height * 0.3
+                                        font.pixelSize: parent.height * 0.4
                                         anchors.centerIn: parent
                                         font.weight: Font.DemiBold
                                         font.bold: true
@@ -337,6 +327,7 @@ ApplicationWindow {
                                     }
                                     onClicked: {
                                         if (backend.on_login_clicked(emailTextInput.text, passwordTextInput.text)) {
+                                            
                                             stackView.push(reccomendationsPage, StackView.Immediate)
                                         }
                                         
@@ -454,10 +445,10 @@ ApplicationWindow {
                         color: "transparent"
 
                         anchors.left: logoHeaderRect.right
-                        anchors.leftMargin: 0
+                        anchors.leftMargin: -5
 
                         anchors.bottom: parent.bottom
-                        anchors.bottomMargin: -5
+                        anchors.bottomMargin: -10
 
                         Text {
                             id: logoText
@@ -465,7 +456,7 @@ ApplicationWindow {
                             anchors.fill: parent
                             text: ".io"
                             font.weight: Font.Bold
-                            font.pointSize: parent.width * 0.5
+                            font.pixelSize: parent.width * 0.55
                         }
                     }
 
@@ -502,6 +493,7 @@ ApplicationWindow {
                                 icon.source: "assets/Blank.svg" // Replace with your icon path
                                 icon.width: parent.width * 0.8
                                 icon.height: parent.height * 0.8
+                                
                                 onClicked: stackView.push(loginPage) // Replace with navigation logic
 
 
@@ -519,7 +511,7 @@ ApplicationWindow {
 
             Rectangle {
                 id: imageRect
-                color: "#ffffff"
+                color: "transparent"
                 width: height
                 height: parent.height * 0.4
 
@@ -541,7 +533,7 @@ ApplicationWindow {
                     anchors.fill: parent
 
                     fillMode: Image.PreserveAspectFit
-                    //source: "assets/vultures.jpg"
+                    source: backend.albumImage
                 }
             }
 
@@ -558,7 +550,7 @@ ApplicationWindow {
             Text {
                 id: trackName
                 color: "#ffffff"
-                text: "Track Name By Artist"
+                text: backend.trackName
                 font.pointSize: parent.width * 0.03
 
                 anchors.centerIn: trackNameRect
@@ -593,7 +585,7 @@ ApplicationWindow {
 
                 MediaPlayer {
                     id: mediaPlayer
-                    source: "assets/sample.mp3" // Provide the media source
+                    source: backend.mediaPlayer_source
                     audioOutput: AudioOutput {}
                     autoPlay: false
                 }
@@ -631,6 +623,11 @@ ApplicationWindow {
                     ProgressBar {
                                 id: progressBar
                                 width: playbackRect.width - playPauseButton.width - 115
+                                
+                                background: Rectangle {
+                                    color: "light grey"
+                                }
+
                                 from: 0
                                 to: mediaPlayer.duration
                                 value: mediaPlayer.position
@@ -644,13 +641,15 @@ ApplicationWindow {
 
                                 Connections {
                                     target: mediaPlayer
-                                    onPositionChanged: progressBar.value = mediaPlayer.position
+                                    function onPositionChanged() {
+                                        progressBar.value = mediaPlayer.position;
+                                    }
                                 }
                     }
 
                     Image {
                         id: dislikeButton
-                        source: "assets/dislikeGreyIcon.svg"
+                        source: backend.dislikeButtonSource
                         width: parent.width
                         height: width
                         fillMode: Image.PreserveAspectFit
@@ -664,12 +663,12 @@ ApplicationWindow {
                             anchors.fill: parent
                             onClicked: {
                                 if (dislikeButton.source == "assets/dislikeGreyIcon.svg") {
-                                    dislikeButton.source = "assets/dislikeRedIcon.svg";
-                                    loveButton.source = "assets/loveGreyIcon.svg";
-                                    console.log("clicked");
+                                    backend.dislikeButtonSource = "assets/dislikeRedIcon.svg";
+                                    backend.likeButtonSource = "assets/loveGreyIcon.svg";
+                                    console.log("DISLIKE clicked");
                                 }
                                 else {
-                                    dislikeButton.source = "assets/dislikeGreyIcon.svg";
+                                    backend.dislikeButtonSource = "assets/dislikeGreyIcon.svg";
                                 }
                             }
                         }
@@ -677,7 +676,7 @@ ApplicationWindow {
 
                     Image {
                         id: loveButton
-                        source: "assets/loveGreyIcon.svg"
+                        source: backend.likeButtonSource
                         width: parent.width
                         height: width
                         fillMode: Image.PreserveAspectFit
@@ -691,11 +690,11 @@ ApplicationWindow {
                             anchors.fill: parent
                             onClicked: {
                                     if (loveButton.source == "assets/loveGreyIcon.svg") {
-                                        loveButton.source = "assets/loveRedIcon.svg";
-                                        dislikeButton.source = "assets/dislikeGreyIcon.svg"; // Reset dislike button
+                                        backend.likeButtonSource = "assets/loveRedIcon.svg";
+                                        backend.dislikeButtonSource = "assets/dislikeGreyIcon.svg"; // Reset dislike button
                                     }
                                     else {
-                                        loveButton.source = "assets/loveGreyIcon.svg";
+                                        backend.likeButtonSource = "assets/loveGreyIcon.svg";
                                     }
                             }
                         }
@@ -725,9 +724,16 @@ ApplicationWindow {
 
                         onReleased: {
                             if (mouse.y - startY < -40) { // Threshold for upward swipe
-                                console.log("Swipe Up Detected");
-                                backend.onSwipeUp(); // Call the backend function (adjust to your setup)
-                                        // Q_INVOKABLE void onSwipeUp(); add this to backend
+                                if (dislikeButton.source == "assets/dislikeRedIcon.svg" && loveButton.source == "assets/loveGreyIcon.svg") {
+                                    var opinion = 0;
+                                    backend.on_swipe_up(opinion);
+                                } else if (dislikeButton.source == "assets/dislikeGreyIcon.svg" && loveButton.source == "assets/loveRedIcon.svg") {
+                                    var opinion = 1;
+                                    backend.on_swipe_up(opinion);
+                                } else {
+                                    backend.on_swipe_up(-1);
+                                } 
+
                             }
                         }
                     }
@@ -754,6 +760,7 @@ ApplicationWindow {
                         icon.color: "grey"
                         icon.width: width * 0.5
                         icon.height: height * 0.5
+                        
 
                         Layout.fillWidth: true
                         Layout.fillHeight: true
@@ -766,7 +773,7 @@ ApplicationWindow {
                         icon.color: "grey"
                         icon.width: width * 0.5
                         icon.height: height * 0.5
-
+                        
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         onClicked: console.log("Leaderboard Clicked") // Replace with navigation logic
@@ -777,7 +784,11 @@ ApplicationWindow {
                         icon.source: "assets/Blank.svg" // Replace with your icon path
                         icon.width: width * 0.9
                         icon.height: height * 0.9
+                        background: Rectangle { 
+                            color: "transparent"
 
+                        }
+                        
                         Image {
                             source: "assets/Logo.png"
                             width: recommendationsButton.width * 1.2 // Icon size is larger than the button
@@ -790,7 +801,13 @@ ApplicationWindow {
 
                         Layout.fillWidth: false
                         Layout.fillHeight: true
-                        onClicked: console.log("Recommendations Clicked") // Replace with navigation logic
+                        onClicked: { 
+                            console.log("Recommendations Clicked");
+                            stackView.push(reccomendationsPage, StackView.Immediate);
+                            backend.on_recommendation_clicked();
+
+                        }
+
                     }
 
                     ToolButton {
@@ -799,6 +816,7 @@ ApplicationWindow {
                         icon.color: "grey"
                         icon.width: width * 0.5
                         icon.height: height * 0.5
+                        
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         onClicked: console.log("Profile Clicked") // Replace with navigation logic
@@ -810,6 +828,7 @@ ApplicationWindow {
                         icon.color: "grey"
                         icon.width: width * 0.5
                         icon.height: height * 0.5
+                        
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         onClicked: console.log("Bookmarks Clicked") // Replace with navigation logic

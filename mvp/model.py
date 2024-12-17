@@ -21,7 +21,6 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from spotipy.oauth2 import SpotifyOAuth
 
-from dotenv import load_dotenv
 
 
 class SpotifyDatasetProcessor:
@@ -281,6 +280,9 @@ class ContentBasedFilter:
     def __init__(self):
         self.full_dataset = pd.read_csv(
             r"full_dataset.csv", engine="pyarrow")
+        
+        self.feature_matrix = np.load(r"feature_matrix_normalised.npy")
+        self.index = faiss.read_index(r"index_file.index")
 
     def get_subjectivity(self, text):
         """
@@ -446,7 +448,7 @@ class ContentBasedFilter:
 
         feature_matrix = self.create_feature_matrix()
         # Normalize feature matrix for L2 distance
-        faiss.normalize_L2(feature_matrix)  # Avoid division by zero
+        faiss.normalize_L2(feature_matrix)  
         print("Feature matrix normalized shape:", feature_matrix.shape)
 
         if os.path.exists(r"feature_matrix_normalised.npy"):
@@ -467,10 +469,8 @@ class ContentBasedFilter:
         Returns:
             None
         """
-        print(track_uri)
-        full_dataset = pd.read_csv(r"full_dataset.csv", engine="pyarrow")
 
-        track_index = full_dataset.index[full_dataset["track_uri"] == track_uri].tolist(
+        track_index = self.full_dataset.index[self.full_dataset["track_uri"] == track_uri].tolist(
         )
 
         if not track_index:
@@ -506,7 +506,6 @@ class ContentBasedFilter:
                 self.normalise_feature_matrix()
             feature_matrix = np.load(r"feature_matrix_normalised.npy")
             index = faiss.IndexFlatIP(feature_matrix.shape[1])
-            print("FAISS index created")
 
             index.add(feature_matrix)
 
@@ -514,13 +513,12 @@ class ContentBasedFilter:
                 os.remove(r"index_file.index")
 
             faiss.write_index(index, r"index_file.index")
-            print("FAISS index saved to disk")
 
         except Exception as e:
             print(f"An error occurred: {e}")
             raise
 
-    def get_similarities(self, track_uri):
+    def get_similarities(self, track_uris_with_opinions):
         """
         Get the similarities between the track vector and the feature matrix using FAISS
 
@@ -532,27 +530,63 @@ class ContentBasedFilter:
             distances (numpy array): Distances of the most similar tracks
         """
 
-        try:
-            start = time.time()
-            feature_matrix = np.load(r"feature_matrix_normalised.npy")
-            track_vector = self.normalise_track_vector(
-                feature_matrix, track_uri)
-            print(track_vector)
-            # Load the index
-            index = faiss.read_index(r"index_file.index")
-            print("FAISS index loaded")
+        if len(track_uris_with_opinions)> 1:
+            liked_uris = [uri for uri, opinion in track_uris_with_opinions if opinion == 1]
+            disliked_uris = [uri for uri, opinion in track_uris_with_opinions if opinion == 0]
 
-            distances, indices = index.search(track_vector, 10)
-            print("Distances:", distances)
-            print("Indices:", indices)
+            print(f"Liked uris: {liked_uris}")
+            print(f"Disliked uris: {disliked_uris}")
+
+            if liked_uris:
+                liked_indices = [self.full_dataset.index[self.full_dataset["track_uri"] == uri].tolist()[0] for uri in liked_uris]
+                liked_vectors = self.feature_matrix[liked_indices] 
+                liked_vector = np.mean(liked_vectors, axis=0)
+
+            if disliked_uris:
+                disliked_indices = [self.full_dataset.index[self.full_dataset["track_uri"] == uri].tolist()[0] for uri in disliked_uris]
+                disliked_vectors = self.feature_matrix[disliked_indices]
+                disliked_vector = np.mean(disliked_vectors, axis=0)
+
+            if liked_uris and disliked_uris:
+                combined_vector = liked_vector - disliked_vector
+            elif liked_uris:
+                combined_vector = liked_vector
+            else:
+                combined_vector = -disliked_vector
+
+
+            combined_vector = combined_vector.reshape(1, -1)
+            combined_vector = np.ascontiguousarray(combined_vector)
+            faiss.normalize_L2(combined_vector)
+
+
+
+            start = time.time()
+
+            distances, indices = self.index.search(combined_vector, 50)
 
             print(f"Time taken to search: {time.time() - start:.2f} seconds")
 
-            return indices[0], distances[0]
+            return indices[0], distances [0]
 
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            raise
+        else:
+
+            try:
+                print(track_uris_with_opinions[0][0])
+                track_vector = self.normalise_track_vector(
+                    self.feature_matrix, track_uris_with_opinions[0][0])
+                
+                start = time.time()
+
+                distances, indices = self.index.search(track_vector, 50)
+
+                print(f"Time taken to search: {time.time() - start:.2f} seconds")
+
+                return indices[0], distances[0]
+
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                raise
 
 
 class Database:
@@ -640,30 +674,126 @@ class Database:
                 return False
             finally:
                 connection.close()
+
+    def get_user_id(self, email):
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                cursor = connection.cursor()
+                cursor.execute('''SELECT id FROM users WHERE email = ?;''', (email,))
+                user_id = cursor.fetchone()
+                return user_id[0] if user_id else None
+            except Error as e:
+                print(e)
+            finally:
+                connection.close()
+
+    def get_opinions(self, user_id):
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                cursor = connection.cursor()
+                cursor.execute('''SELECT track_uri, opinion FROM user_opinions WHERE user_id = ?;''', (user_id,))
+                rows = cursor.fetchall()
+                return rows
+            except Error as e:
+                print(e)
+            finally:
+                connection.close()           
     
-def query_users():
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users")
-    users = cursor.fetchall()
-    print("\nData in 'users' table:")
-    for user in users:
-        print(user)
-    conn.close()
+    def save_opinions(self, user_id, track_uri, opinion):
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                cursor = connection.cursor()
+                cursor.execute('''
+                    INSERT INTO user_opinions (user_id, track_uri, opinion)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(user_id, track_uri) DO UPDATE SET opinion=excluded.opinion;
+                ''', (user_id, track_uri, opinion))
+                connection.commit()
+            except Error as e:
+                print(e)
+            finally:
+                connection.close()
 
-user_db = Database()
+    def delete_opinion(self, user_id, track_uri):
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                cursor = connection.cursor()
+                cursor.execute('''
+                    DELETE FROM user_opinions WHERE user_id = ? AND track_uri = ?;
+                ''', (user_id, track_uri))
+                connection.commit()
+            except Error as e:
+                print(e)
+            finally:
+                connection.close()
 
 
+    def get_user_track_uris(self, user_id):
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                cursor = connection.cursor()
+                cursor.execute("SELECT track_uri FROM user_opinions WHERE user_id = ? AND opinion = 1", (user_id,))
+                track_uris = [row[0] for row in cursor.fetchall()]
+                connection.close()
+                return track_uris
+            except Error as e:
+                print(e)
+            finally:
+                connection.close()
+        return []
+    
+    def get_user_track_uris_with_opinions(self, user_id):
+        connection = self.create_connection()
+        if connection is not None:
+            try:
+                cursor = connection.cursor()
+                cursor.execute("SELECT track_uri, opinion FROM user_opinions WHERE user_id = ?", (user_id,))
+                track_uris_with_opinions = cursor.fetchall()
+                connection.close()
+                return track_uris_with_opinions
+            except Error as e:
+                print(e)
+            finally:
+                connection.close()
+        return []
 
-load_dotenv(r"keys.env")
-SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
-SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 
+class SpotifyClient:
+    def __init__(self, client_id, client_secret):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.sp = self.create_spotify_client()
 
-processor = SpotifyDatasetProcessor(client_id=SPOTIFY_CLIENT_ID, client_secret=SPOTIFY_CLIENT_SECRET,
-                                    directory=r"spotify_million_playlist_dataset\data")
+    def create_spotify_client(self):
+        client_credentials_manager = SpotifyClientCredentials(client_id=self.client_id, client_secret=self.client_secret)
+        return spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+    
+    def get_track_details(self, track_uris):
+        track_details_list = []
+        
+        tracks = self.sp.tracks(track_uris)['tracks']
+        for track in tracks:
+            album_cover = track['album']['images'][0]['url'] if track['album']['images'] else None
+            preview_url = track['preview_url']
+            artist_name = track['artists'][0]['name'] if track['artists'] else None
+            track_name = track['name']
+            track_uri = track['uri']
+            track_details_list.append({
+                'album_cover': album_cover,
+                'preview_url': preview_url,
+                'artist_name': artist_name,
+                'track_name': track_name,
+                'track_uri': track_uri,
+            })
+        return track_details_list
 
-cbf = ContentBasedFilter()
+        
+
 
 # processor.clean_data()
 # processor.get_audio_features(r"mvp\audio_features.csv")
@@ -673,11 +803,5 @@ cbf = ContentBasedFilter()
 # audio_features = pd.read_csv(r"mvp\audio_features.csv", engine="pyarrow")
 #full_dataset = pd.read_csv(r"full_dataset.csv", engine="pyarrow")
 
-#cbf.process_data()
-#cbf.create_index()
-#indices, distances = cbf.get_similarities(
-#    track_uri="spotify:track:2MYl0er3UZ1RlKwRb5LODh")
-#similar_tracks = full_dataset.iloc[indices]
-#similar_tracks = similar_tracks[['track_name', 'artist_name', 'track_uri', 'genres', 'acousticness',
-#                                 'danceability', 'energy', 'instrumentalness', 'liveness', 'loudness', 'speechiness', 'valence', 'tempo']]
-#print(similar_tracks)
+
+

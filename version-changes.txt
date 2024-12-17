@@ -1,26 +1,13 @@
-Version 0.0.8
+Version 0.0.9
 
-- Created another component page that is pushed when register button is clicked. User is then prompted to enter their first name and last name. 
+- Created a user_opinions table as a link table to resolve the many to many relationship of user tracks and user opinions. 
 
-- email, password, first name and last name is collected through the register function and passed through to the backend function on_register_submit()
+- Got random track details if the user_opinions table of the user has no liked opinions. 
+- Created a swipe area to get the opinion state of the current track based off the like and dislike button states. 
+	- On swipe up, save the opinion to the database and then go to the next recommendation.
 
+- Set the reccomendations button to refresh reccomendations by checking if the user_opinions has liked opinions and generate a list of track detail recommendations. If it is still empty, continue to generate random track details. 
 
-- Created a database class in model.py to handle database processes.
+- Adjusted the get_similarities function to take the dislike and like opinions within the user_opinion table to get a mean average of the track details to ensure disliked track features are less likely to be generated. 
 
-- imported database in presenter.py to allow it to access the methods of the database class
-
-- Created functions for the database class to 
-	- create a connection to the database file, 
-	- create a users table within the database that stores email, first name, last name and the 	hashed password, 
-	- insert a new user to the table given inputs from the GUI and hash the password input,
-	- verify the user to check if login credentials match for when the user attempts a login rather 	than registration.
-
-- Created functions to ensure email and password input match requirements on registration attempt. 
-
-- Created a function to check if an account already exists with the user email on registration attempt. This ensures that duplicate accounts don't exist. 
-
-- Created dialogue box to tell user error prompts. 
-
-- If the login credentials match, let the user through to the main program.
-
-- Dialogue box created for errors.
+- Set the track name, album image and artist name of the GUI to the current generated track recommendation. 
