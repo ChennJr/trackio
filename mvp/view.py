@@ -1,15 +1,13 @@
-# This Python file uses the following encoding: utf-8
 import sys
 from pathlib import Path
 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtCore import QObject, Slot, Signal, Property, QUrl
-
+from PySide6.QtWebEngineQuick import QtWebEngineQuick
 
 from presenter import Presenter
-import cProfile
-from PySide6.QtWebEngineQuick import QtWebEngineQuick
+
 
 class Backend(QObject):
     showMessage = Signal()
@@ -304,8 +302,6 @@ def main():
     app.exec()
 
 if __name__ == "__main__":
-    # Create a profile file using cProfile
-    profile_file = 'profile_data.prof'
-    cProfile.run('main()', profile_file)
+    main()
 
     

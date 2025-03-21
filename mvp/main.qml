@@ -2357,7 +2357,7 @@ ApplicationWindow {
 
                         Platform.FolderDialog {
                             id: folderDialog
-                            title: "Select Spotify Dataseet Folder"
+                            title: "Select Spotify Dataset Folder"
                             
                             onAccepted: {
                                 backend.clean_spotify_dataset(folderDialog.folder)

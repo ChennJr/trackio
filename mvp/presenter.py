@@ -1,5 +1,5 @@
 from PySide6.QtCore import QObject
-from model import Database, SpotifyClient, ContentBasedFilter, SpotifyDatasetProcessor
+from model import Database, SpotifyClient, ContentBasedFilter, SpotifyDatasetProcessor, get_file_path
 import re
 from dotenv import load_dotenv
 import os
@@ -8,7 +8,7 @@ import glob
 class Presenter(QObject):
     def __init__(self, view):
         super().__init__()
-        load_dotenv(r"keys.env")
+        load_dotenv(get_file_path("keys.env"))
         SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
         SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
         self.view = view
@@ -74,6 +74,7 @@ class Presenter(QObject):
         else:
             self.view.message = ("All fields are required")
             self.view.showMessage.emit()
+            return False, [], []
 
     def verify_user_forgotten_password(self, email, first_name, last_name):
         if not self.email_exists(email):
@@ -153,8 +154,11 @@ class Presenter(QObject):
     def fetch_track_details(self):
         liked_track_uris = self.user_db.get_user_liked_track_uris(self.user_id)
         if not liked_track_uris:
+            print('No liked tracks')
             track_uris = self.cbf.random_uri()
         else:
+            print('Liked tracks')
+            
             track_uris_with_opinions = self.user_db.get_user_track_uris_with_opinions(self.user_id)
             track_uris = self.user_db.get_user_track_uris(self.user_id)
             indices, _ = self.cbf.get_similarities(track_uris_with_opinions)
@@ -189,7 +193,7 @@ class Presenter(QObject):
             return self.spotify_client.get_track_details([track_uri]), opinions
         
         else:
-            return None, None
+            return [], []
     
     def get_track_details_by_uris(self, track_uris):
         # Implement logic to get track details by URI
@@ -218,12 +222,18 @@ class Presenter(QObject):
         self.cbf.update_track_database()
     
     def clean_spotify_dataset(self, folder_path):
-        self.processor.directory = sorted(glob.glob(folder_path + r"\*json"), key=len)
+        if folder_path.startswith("file:///"):
+            folder_path = folder_path[8:] 
+        self.processor.directory = sorted(glob.glob(folder_path + r"/*json"), key=len)
+        print(folder_path)
+        print(sorted(glob.glob(folder_path + r"/*json"), key=len))
         self.processor.clean_data()
 
     def get_spotify_dataset_audio_features(self, csv_file):
+        if csv_file.startswith("file:///"):
+            csv_file = csv_file[8:] 
         self.processor.csv_file = csv_file
-        self.processor.get_audio_features("audio_features.csv")
+        self.processor.get_audio_features(get_file_path("audio_features.csv"))
     
     def create_full_dataset(self, full_dataset_files):
         self.processor.audio_features_file = full_dataset_files[0]
@@ -280,6 +290,9 @@ class Presenter(QObject):
 
         elif search_query.endswith("@brookeweston.org"):
             pass
+
+        elif search_query == " ":
+            return []
 
         else:
             # Handle track name search

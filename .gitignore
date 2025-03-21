@@ -14,3 +14,10 @@ ui
 /QtCreator
 mvp/__pycache__/presenter.cpython-312.pyc
 users.db
+program
+profile_data.prof
+view.spec
+
+mvp/__pycache__/view.cpython-312.pyc
+mvp/__pycache__/presenter.cpython-313.pyc
+mvp/__pycache__/model.cpython-313.pyc

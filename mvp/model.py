@@ -1,6 +1,5 @@
 import json
 import random
-import glob
 import time
 import os
 import numpy as np
@@ -15,16 +14,24 @@ from sklearn.decomposition import TruncatedSVD
 import faiss
 import sqlite3
 from sqlite3 import Error
+
 import bcrypt
 from collections import Counter
-from dotenv import load_dotenv
 
 import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyClientCredentials, SpotifyOAuth
 import deezer
+import sys
 
 
+
+def get_file_path(filename):
+    if getattr(sys, 'frozen', False):  # Running from PyInstaller bundle
+        base_path = sys._MEIPASS  # Temporary folder where PyInstaller extracts files
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))  # Normal script path
+
+    return os.path.join(base_path, filename)
 
 class SpotifyDatasetProcessor:
     def __init__(self, client_id, client_secret):
@@ -32,8 +39,8 @@ class SpotifyDatasetProcessor:
         :param directory: Directory containing the spotify dataset json files
         """
         self.directory = ""
-        self.csv_file = r"dataset.csv"
-        self.audio_features_file = r"audio_features.csv"
+        self.csv_file = get_file_path("dataset.csv")
+        self.audio_features_file = get_file_path("audio_features.csv")
         self.client_id = client_id
         self.client_secret = client_secret
         self.sp = self.create_spotify_client()
@@ -85,7 +92,7 @@ class SpotifyDatasetProcessor:
                         "album_name", "album_uri"], inplace=True)
                 df.drop_duplicates(
                     subset=["track_uri"], ignore_index=True, inplace=True)
-                df.to_csv(r"dataset.csv", mode="a",
+                df.to_csv(get_file_path("dataset.csv"), mode="a",
                           index=False, header=False)
                 tracks_list.clear()
 
@@ -101,9 +108,9 @@ class SpotifyDatasetProcessor:
             df.drop_duplicates(subset=["track_uri"],
                                ignore_index=True, inplace=True)
 
-            df.to_csv(r"dataset.csv", mode="a", index=False, header=False)
+            df.to_csv(get_file_path("dataset.csv"), mode="a", index=False, header=False)
 
-        df = pd.read_csv(r"dataset.csv")
+        df = pd.read_csv(get_file_path("dataset.csv"))
         df.drop_duplicates(subset=["track_uri"],
                            ignore_index=True, inplace=True)
         df = df.sort_values(
@@ -271,25 +278,25 @@ class SpotifyDatasetProcessor:
             self.audio_features_file, engine="pyarrow")
 
         audio_features = pd.concat([track_uri, audio_features], axis=1)
-        audio_features.to_csv(r"audio_features.csv", index=False)
+        audio_features.to_csv(get_file_path("audio_features.csv"), index=False)
 
     def join_dataset(self):
         dataset = pd.read_csv(self.csv_file, engine="pyarrow")
         audio_features = pd.read_csv(
             self.audio_features_file, engine="pyarrow")
         full_dataset = pd.concat([dataset, audio_features], axis=1)
-        full_dataset.to_csv(r"full_dataset.csv", index=False)
+        full_dataset.to_csv(get_file_path("full_dataset.csv"), index=False)
 
 
 class ContentBasedFilter:
     def __init__(self, client_id, client_secret):
         self.full_dataset = pd.read_csv(
-            r"full_dataset.csv", engine="pyarrow",)
+            get_file_path("full_dataset.csv"), engine="pyarrow",)
         self.client_id = client_id
         self.client_secret = client_secret
         self.sp = self.create_spotify_client()
-        self.feature_matrix = np.load(r"feature_matrix_normalised.npy")
-        self.index = faiss.read_index(r"index_file.index")
+        self.feature_matrix = np.load(get_file_path("feature_matrix_normalised.npy"))
+        self.index = faiss.read_index(get_file_path("index_file.index"))
         self.uri_array = np.array(self.full_dataset["track_uri"])
         
     def create_spotify_client(self):
@@ -428,7 +435,7 @@ class ContentBasedFilter:
 
         feature_df.fillna(0, inplace=True)
 
-        feature_df.to_hdf(r"complete_feature_df.h5", key="df", mode="w")
+        feature_df.to_hdf(get_file_path("complete_feature_df.h5"), key="df", mode="w")
         print("Complete feature df saved to disk")
 
     def create_feature_matrix(self):
@@ -440,7 +447,7 @@ class ContentBasedFilter:
         """
 
         try:
-            feature_df = pd.read_hdf(r"complete_feature_df.h5", key="df")
+            feature_df = pd.read_hdf(get_file_path("complete_feature_df.h5"), key="df")
             print("Feature df loaded")
 
             feature_matrix = feature_df.values
@@ -465,10 +472,10 @@ class ContentBasedFilter:
         faiss.normalize_L2(feature_matrix)  
         print("Feature matrix normalized shape:", feature_matrix.shape)
 
-        if os.path.exists(r"feature_matrix_normalised.npy"):
-            os.remove(r"feature_matrix_normalised.npy")
+        if os.path.exists(get_file_path("feature_matrix_normalised.npy")):
+            os.remove(get_file_path("feature_matrix_normalised.npy"))
 
-        np.save(r"feature_matrix_normalised.npy", feature_matrix)
+        np.save(get_file_path("feature_matrix_normalised.npy"), feature_matrix)
         print("Feature matrix saved to disk")
 
     def normalise_track_vector(self, feature_matrix, track_uri):
@@ -510,20 +517,20 @@ class ContentBasedFilter:
 
         try:
             # Create a new index
-            if os.path.exists(r"feature_matrix_normalised.npy"):
+            if os.path.exists(get_file_path("feature_matrix_normalised.npy")):
                 pass
 
             else:
                 self.normalise_feature_matrix()
-            feature_matrix = np.load(r"feature_matrix_normalised.npy")
+            feature_matrix = np.load(get_file_path("feature_matrix_normalised.npy"))
             index = faiss.IndexFlatIP(feature_matrix.shape[1])
 
             index.add(feature_matrix)
 
-            if os.path.exists(r"index_file.index"):
-                os.remove(r"index_file.index")
+            if os.path.exists(get_file_path("index_file.index")):
+                os.remove(get_file_path("index_file.index"))
 
-            faiss.write_index(index, r"index_file.index")
+            faiss.write_index(index, get_file_path("index_file.index"))
 
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -641,9 +648,9 @@ class ContentBasedFilter:
         return False
     
     def update_track_database(self):
-        if not os.path.exists('user_track_uris'):
-            os.makedirs('user_track_uris')
-        csv_files = [os.path.join('user_track_uris', f) for f in os.listdir('user_track_uris') if f.endswith('.csv')]
+        if not os.path.exists(get_file_path('user_track_uris')):
+            os.makedirs(get_file_path('user_track_uris'))
+        csv_files = [os.path.join(get_file_path('user_track_uris'), f) for f in os.listdir(get_file_path('user_track_uris')) if f.endswith('.csv')]
 
         # Merge all CSV files into one DataFrame, removing duplicates
         df_list = [pd.read_csv(file) for file in csv_files]
@@ -684,14 +691,14 @@ class ContentBasedFilter:
         track_info_df = pd.DataFrame(track_info_list)
 
         self.full_dataset = pd.concat([self.full_dataset, track_info_df], ignore_index=True).drop_duplicates(subset="track_uri")
-        self.full_dataset.to_csv(r"full_dataset.csv", index=False)
+        self.full_dataset.to_csv(get_file_path("full_dataset.csv"), index=False)
         self.process_data()
         self.create_index()
         
 
 
 class Database:
-    DATABASE_FILE = "users.db"
+    DATABASE_FILE = get_file_path("users.db")
 
     def __init__(self):
         self.create_table()
@@ -1065,8 +1072,8 @@ class SpotifyClient:
         
         df = pd.DataFrame(track_uris, columns=['track_uri'])
         user_id = self.sp.current_user()['id']
-        file_name = f'user_track_uris/{user_id}_track_uris.csv'
-        df.to_csv(file_name, index=False)
+        file_name = f"user_track_uris/{user_id}_track_uris.csv"
+        df.to_csv(get_file_path(file_name), index=False)
         print("Track URIs saved to user_track_uris/user_track_uris.csv")
     
     def get_currently_playing(self):
