@@ -85,10 +85,16 @@ class Presenter(QObject):
         elif self.user_db.verify_user_forgotten_password(email, first_name, last_name):
             self.email = email
             return True
-        return False
+        
+        else:
+            self.view.message = ("Invalid credentials")
+            self.view.showMessage.emit()
+            return False
     
     def reset_password(self, new_password, confirm_password):
-        if new_password == confirm_password:
+        if not self.validate_password(new_password):
+            return False
+        elif new_password == confirm_password:
             self.user_db.update_password(self.email, new_password)
             self.view.message = ("Password reset successful")
             self.view.showMessage.emit()
