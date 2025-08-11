@@ -1,0 +1,13 @@
+Version 0.0.9
+
+- Created a user_opinions table as a link table to resolve the many to many relationship of user tracks and user opinions. 
+
+- Got random track details if the user_opinions table of the user has no liked opinions. 
+- Created a swipe area to get the opinion state of the current track based off the like and dislike button states. 
+	- On swipe up, save the opinion to the database and then go to the next recommendation.
+
+- Set the reccomendations button to refresh reccomendations by checking if the user_opinions has liked opinions and generate a list of track detail recommendations. If it is still empty, continue to generate random track details. 
+
+- Adjusted the get_similarities function to take the dislike and like opinions within the user_opinion table to get a mean average of the track details to ensure disliked track features are less likely to be generated. 
+
+- Set the track name, album image and artist name of the GUI to the current generated track recommendation. 
